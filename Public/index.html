@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ReviewBot</title>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet"/>
+<style>
+:root{--bg:#0D0F14;--s1:#13161D;--s2:#1A1E28;--bdr:rgba(255,255,255,0.07);--acc:#63B3ED;--acc2:#4299E1;--acc3:#2B6CB0;--glow:rgba(99,179,237,0.18);--txt:#E2E8F0;--muted:#718096;--dim:#4A5568;--ok:#48BB78;--warn:#ECC94B;--err:#FC8181;--zom:#E23744;--swg:#FC8019;}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow:hidden;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(99,179,237,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(99,179,237,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+
+/* ── SCREENS ── */
+.screen{display:none;position:fixed;inset:0;z-index:200;overflow-y:auto;background:var(--bg);align-items:center;justify-content:center;padding:24px;}
+.screen.on{display:flex;}
+.box{background:var(--s1);border:1px solid var(--bdr);border-radius:20px;padding:36px;width:min(460px,100%);animation:popIn .35s ease both;}
+@keyframes popIn{from{opacity:0;transform:scale(.95);}to{opacity:1;transform:scale(1);}}
+.box-logo{width:50px;height:50px;background:linear-gradient(135deg,var(--acc2),var(--acc));border-radius:14px;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:17px;color:#fff;margin-bottom:18px;box-shadow:0 4px 20px var(--glow);}
+.box-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;margin-bottom:5px;}
+.box-sub{font-size:13px;color:var(--muted);margin-bottom:24px;line-height:1.6;}
+.fl{display:block;font-size:12px;font-weight:500;color:var(--muted);margin-bottom:5px;}
+.fi{width:100%;padding:10px 13px;border-radius:10px;border:1px solid var(--bdr);background:rgba(255,255,255,.04);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--txt);outline:none;transition:border-color .2s,box-shadow .2s;margin-bottom:13px;}
+.fi:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(99,179,237,.1);}
+.fi::placeholder{color:var(--dim);}
+.btn{width:100%;padding:13px;border-radius:11px;font-size:13px;font-weight:700;cursor:pointer;border:none;font-family:'DM Sans',sans-serif;transition:all .2s;}
+.btn:hover{transform:translateY(-1px);}
+.btn.primary{background:linear-gradient(135deg,var(--acc3),var(--acc2));color:#fff;box-shadow:0 5px 18px var(--glow);}
+.btn.green{background:linear-gradient(135deg,#38A169,var(--ok));color:#fff;box-shadow:0 5px 18px rgba(72,187,120,.25);}
+.btn.outline{background:transparent;border:1px solid var(--bdr);color:var(--muted);}
+.btn.outline:hover{border-color:var(--acc);color:var(--acc);}
+.btn+.btn{margin-top:8px;}
+.divider{display:flex;align-items:center;gap:10px;margin:16px 0;color:var(--dim);font-size:11px;}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--bdr);}
+.note{background:rgba(99,179,237,.05);border:1px solid rgba(99,179,237,.12);border-radius:9px;padding:10px 13px;font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:14px;}
+.note strong{color:var(--acc);}
+.note.warn{background:rgba(236,201,75,.05);border-color:rgba(236,201,75,.15);}
+.note.warn strong{color:var(--warn);}
+.note.ok{background:rgba(72,187,120,.05);border-color:rgba(72,187,120,.15);}
+.note.ok strong{color:var(--ok);}
+
+/* PLAN CARDS in payment screen */
+.plan-sel{display:flex;flex-direction:column;gap:8px;margin-bottom:18px;}
+.plan-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:2px solid var(--bdr);cursor:pointer;transition:all .2s;}
+.plan-row:hover{border-color:rgba(99,179,237,.3);}
+.plan-row.active{border-color:var(--acc);background:rgba(99,179,237,.06);}
+.plan-row .prname{font-family:'Syne',sans-serif;font-weight:700;font-size:13px;}
+.plan-row .prdesc{font-size:11px;color:var(--muted);margin-top:2px;}
+.plan-row .prprice{margin-left:auto;font-family:'Syne',sans-serif;font-weight:800;font-size:16px;color:var(--acc);white-space:nowrap;}
+
+/* ── SIDEBAR ── */
+.sb{position:fixed;left:0;top:0;bottom:0;width:64px;background:var(--s1);border-right:1px solid var(--bdr);display:flex;flex-direction:column;align-items:center;padding:18px 0;z-index:100;gap:4px;}
+.logo{width:40px;height:40px;background:linear-gradient(135deg,var(--acc2),var(--acc));border-radius:12px;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:15px;color:#fff;margin-bottom:16px;box-shadow:0 4px 16px var(--glow);}
+.nb{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:none;background:transparent;color:var(--dim);transition:all .2s;position:relative;}
+.nb:hover{background:rgba(255,255,255,.06);color:var(--muted);}
+.nb.on{background:rgba(99,179,237,.12);color:var(--acc);}
+.nb svg{width:17px;height:17px;}
+.bdot{position:absolute;top:5px;right:5px;width:7px;height:7px;background:var(--err);border-radius:50%;border:2px solid var(--s1);display:none;}
+.bdot.show{display:block;}
+.spacer{flex:1;}
+.sdot{width:8px;height:8px;border-radius:50%;background:var(--dim);transition:all .3s;}
+.sdot.on{background:var(--ok);animation:pulse 2s infinite;}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(72,187,120,.4);}70%{box-shadow:0 0 0 7px rgba(72,187,120,0);}100%{box-shadow:0 0 0 0 rgba(72,187,120,0);}}
+
+/* ── MAIN ── */
+.main{position:fixed;left:64px;top:0;right:0;bottom:0;display:flex;flex-direction:column;overflow:hidden;}
+.topbar{flex-shrink:0;background:rgba(13,15,20,.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--bdr);padding:0 22px;height:56px;display:flex;align-items:center;gap:12px;z-index:50;}
+.tbtitle{font-family:'Syne',sans-serif;font-weight:800;font-size:16px;}
+.tbpill{display:flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:500;border:1px solid var(--bdr);color:var(--dim);background:rgba(255,255,255,.03);}
+.tbpill.on{background:rgba(72,187,120,.08);border-color:rgba(72,187,120,.2);color:var(--ok);}
+.tbpill.demo{background:rgba(236,201,75,.08);border-color:rgba(236,201,75,.25);color:var(--warn);}
+.tbright{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.tbright span{font-size:11px;color:var(--dim);}
+.upgrade-chip{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid rgba(99,179,237,.3);background:rgba(99,179,237,.08);color:var(--acc);transition:all .2s;}
+.upgrade-chip:hover{background:rgba(99,179,237,.16);}
+
+.pages{flex:1;overflow-y:auto;position:relative;z-index:1;}
+.page{display:none;padding:20px;}
+.page.on{display:block;}
+
+/* DEMO BANNER */
+.demo-banner{background:linear-gradient(135deg,rgba(236,201,75,.07),rgba(236,201,75,.03));border:1px solid rgba(236,201,75,.2);border-radius:14px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.demo-banner h3{font-family:'Syne',sans-serif;font-size:12px;font-weight:800;color:var(--warn);}
+.demo-banner p{font-size:11px;color:var(--muted);margin-top:2px;}
+.dbtns{display:flex;gap:7px;flex-wrap:wrap;margin-left:auto;}
+.dbtn{padding:6px 12px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;}
+.dbtn:hover{transform:translateY(-1px);}
+.dbtn.zom{background:rgba(226,55,68,.12);color:var(--zom);border:1px solid rgba(226,55,68,.25);}
+.dbtn.swg{background:rgba(252,128,25,.12);color:var(--swg);border:1px solid rgba(252,128,25,.25);}
+.dbtn.both{background:rgba(99,179,237,.1);color:var(--acc);border:1px solid rgba(99,179,237,.25);}
+.dbtn.clr{background:rgba(252,129,129,.08);color:var(--err);border:1px solid rgba(252,129,129,.2);}
+
+/* LOCKED BANNER */
+.locked-banner{background:linear-gradient(135deg,rgba(99,179,237,.07),rgba(99,179,237,.03));border:1px solid rgba(99,179,237,.2);border-radius:14px;padding:18px 20px;margin-bottom:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.locked-banner .lico{font-size:28px;}
+.locked-banner h3{font-family:'Syne',sans-serif;font-size:13px;font-weight:800;color:var(--acc);margin-bottom:3px;}
+.locked-banner p{font-size:11px;color:var(--muted);line-height:1.5;}
+.locked-banner .lbtn{margin-left:auto;padding:9px 18px;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;border:none;background:linear-gradient(135deg,var(--acc3),var(--acc2));color:#fff;font-family:'DM Sans',sans-serif;white-space:nowrap;transition:all .2s;}
+.locked-banner .lbtn:hover{transform:translateY(-1px);}
+
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+.sc{background:var(--s1);border-radius:14px;padding:16px 18px;border:1px solid var(--bdr);position:relative;overflow:hidden;transition:transform .2s;}
+.sc:hover{transform:translateY(-2px);}
+.sc::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;}
+.sc:nth-child(1)::after{background:linear-gradient(90deg,var(--acc2),var(--acc));}
+.sc:nth-child(2)::after{background:linear-gradient(90deg,#38A169,var(--ok));}
+.sc:nth-child(3)::after{background:linear-gradient(90deg,#D69E2E,var(--warn));}
+.slbl{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:500;margin-bottom:6px;}
+.sval{font-family:'Syne',sans-serif;font-size:30px;font-weight:800;line-height:1;}
+.sval.b{color:var(--acc);}.sval.g{color:var(--ok);}.sval.y{color:var(--warn);}
+
+.dgrid{display:grid;grid-template-columns:1fr 280px;gap:14px;align-items:start;}
+.lcol{display:flex;flex-direction:column;gap:10px;}
+
+.fbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px;}
+.fp{padding:5px 12px;border-radius:8px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid var(--bdr);background:var(--s1);color:var(--muted);transition:all .2s;}
+.fp.on{background:rgba(99,179,237,.12);border-color:var(--acc);color:var(--acc);}
+.rbtn{margin-left:auto;padding:5px 12px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid rgba(99,179,237,.25);background:rgba(99,179,237,.08);color:var(--acc);display:flex;align-items:center;gap:5px;transition:all .2s;}
+.rbtn:hover{background:rgba(99,179,237,.16);}
+
+.rg{display:flex;flex-direction:column;gap:10px;}
+.rc{background:var(--s1);border-radius:14px;padding:16px;border:1px solid var(--bdr);animation:sld .35s ease both;position:relative;transition:border-color .2s;}
+.rc:hover{border-color:rgba(99,179,237,.2);}
+.rc.done{opacity:.5;}
+.rc.done::after{content:'✓ Replied';position:absolute;top:12px;right:12px;background:rgba(72,187,120,.15);color:var(--ok);border:1px solid rgba(72,187,120,.3);font-size:10px;font-weight:600;padding:2px 9px;border-radius:20px;}
+.rc.is-demo{border-color:rgba(236,201,75,.12);}
+@keyframes sld{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+.ch{display:flex;align-items:center;gap:7px;margin-bottom:10px;flex-wrap:wrap;}
+.pb{padding:2px 8px;border-radius:6px;font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;}
+.pb.zomato{background:rgba(226,55,68,.12);color:var(--zom);border:1px solid rgba(226,55,68,.2);}
+.pb.swiggy{background:rgba(252,128,25,.12);color:var(--swg);border:1px solid rgba(252,128,25,.2);}
+.demo-tag{font-size:9px;font-weight:700;padding:2px 7px;border-radius:5px;background:rgba(236,201,75,.1);color:var(--warn);border:1px solid rgba(236,201,75,.2);text-transform:uppercase;}
+.ctime{margin-left:auto;font-size:10px;color:var(--dim);}
+.rt{font-size:13px;line-height:1.65;color:var(--muted);background:rgba(255,255,255,.03);border-radius:9px;padding:10px 12px;margin-bottom:9px;border-left:2px solid rgba(99,179,237,.25);}
+.ars{background:rgba(99,179,237,.05);border:1px solid rgba(99,179,237,.12);border-radius:10px;padding:10px 12px;margin-bottom:9px;}
+.albl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--acc);margin-bottom:4px;}
+.art{font-size:12px;line-height:1.65;color:var(--txt);}
+.agen{display:flex;align-items:center;gap:7px;color:var(--dim);font-size:12px;font-style:italic;}
+.spin{width:12px;height:12px;border:2px solid rgba(99,179,237,.2);border-top-color:var(--acc);border-radius:50%;animation:spin .8s linear infinite;flex-shrink:0;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.ca{display:flex;gap:7px;flex-wrap:wrap;}
+.bl{padding:7px 14px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;border:none;background:linear-gradient(135deg,#38A169,var(--ok));color:#fff;display:flex;align-items:center;gap:5px;transition:all .2s;}
+.bl:hover{transform:translateY(-1px);}
+.bl:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+.br{padding:7px 14px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid rgba(99,179,237,.25);background:rgba(99,179,237,.08);color:var(--acc);display:flex;align-items:center;gap:5px;transition:all .2s;}
+.br:disabled{opacity:.4;cursor:not-allowed;}
+.bd{padding:7px 10px;border-radius:8px;font-size:11px;cursor:pointer;border:1px solid rgba(252,129,129,.2);background:transparent;color:var(--err);transition:all .2s;margin-left:auto;}
+.bd:hover{background:rgba(252,129,129,.08);}
+
+.apanel{background:var(--s1);border-radius:14px;border:1px solid var(--bdr);overflow:hidden;position:sticky;top:0;}
+.ph{padding:12px 15px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;}
+.pt{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px;}
+.pt .dot{width:6px;height:6px;border-radius:50%;background:var(--acc);animation:pulse 2s infinite;}
+.pbadge{font-size:10px;font-weight:600;background:rgba(99,179,237,.12);color:var(--acc);padding:2px 8px;border-radius:20px;}
+.al{max-height:420px;overflow-y:auto;padding:4px 0;}
+.al::-webkit-scrollbar{width:3px;}
+.al::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:3px;}
+.ai{padding:9px 15px;display:flex;gap:9px;align-items:flex-start;border-bottom:1px solid rgba(255,255,255,.03);}
+.ai:last-child{border-bottom:none;}
+.aico{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;}
+.aico.review{background:rgba(99,179,237,.12);}
+.aico.reply{background:rgba(72,187,120,.12);}
+.aico.regen{background:rgba(236,201,75,.1);}
+.aico.delete{background:rgba(252,129,129,.1);}
+.ab{flex:1;min-width:0;}
+.atitle{font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px;}
+.amet{font-size:10px;color:var(--dim);display:flex;align-items:center;gap:4px;}
+.aplat{padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;}
+.aplat.zomato{background:rgba(226,55,68,.15);color:var(--zom);}
+.aplat.swiggy{background:rgba(252,128,25,.15);color:var(--swg);}
+.aempty{padding:28px 15px;text-align:center;color:var(--dim);font-size:12px;}
+.aempty span{display:block;font-size:22px;margin-bottom:5px;}
+
+.empty{text-align:center;padding:44px 20px;color:var(--dim);}
+.empty span{font-size:36px;margin-bottom:8px;display:block;opacity:.5;}
+.empty h3{font-family:'Syne',sans-serif;font-size:14px;color:var(--muted);margin-bottom:4px;}
+.empty p{font-size:12px;line-height:1.6;max-width:240px;margin:0 auto;}
+
+/* SETTINGS */
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:720px;}
+.ss{background:var(--s1);border-radius:14px;padding:18px;border:1px solid var(--bdr);}
+.ss.fw{grid-column:1/-1;}
+.stit{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--acc);margin-bottom:12px;display:flex;align-items:center;gap:6px;}
+.stit::before{content:'';width:3px;height:10px;background:linear-gradient(to bottom,var(--acc2),var(--acc));border-radius:2px;}
+.sfi{width:100%;padding:9px 12px;border-radius:9px;border:1px solid var(--bdr);background:rgba(255,255,255,.04);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--txt);outline:none;margin-bottom:11px;transition:border-color .2s;}
+.sfi:focus{border-color:var(--acc);}
+.sfi::placeholder{color:var(--dim);}
+.tg{display:flex;gap:5px;flex-wrap:wrap;}
+.tp{padding:6px 12px;border-radius:7px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid var(--bdr);background:transparent;color:var(--muted);transition:all .2s;}
+.tp.sel{background:rgba(99,179,237,.12);border-color:var(--acc);color:var(--acc);}
+.savebtn{width:100%;padding:11px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:linear-gradient(135deg,var(--acc3),var(--acc2));color:#fff;font-family:'DM Sans',sans-serif;box-shadow:0 4px 16px var(--glow);transition:all .2s;}
+.savebtn:hover{transform:translateY(-1px);}
+
+/* PLAN BADGE */
+.plan-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;}
+.plan-badge.free{background:rgba(255,255,255,.06);color:var(--muted);border:1px solid var(--bdr);}
+.plan-badge.pro{background:rgba(99,179,237,.12);color:var(--acc);border:1px solid rgba(99,179,237,.25);}
+.plan-badge.unlimited{background:rgba(236,201,75,.1);color:var(--warn);border:1px solid rgba(236,201,75,.25);}
+.plan-badge.business{background:rgba(252,129,129,.08);color:var(--err);border:1px solid rgba(252,129,129,.2);}
+
+.tc{position:fixed;bottom:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:6px;pointer-events:none;}
+.toast{background:var(--s2);color:var(--txt);padding:9px 15px;border-radius:9px;font-size:12px;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,.4);animation:tin .3s ease both;display:flex;align-items:center;gap:8px;max-width:280px;border:1px solid var(--bdr);}
+.toast.ok{border-left:3px solid var(--ok);}
+.toast.warn{border-left:3px solid var(--warn);}
+.toast.err{border-left:3px solid var(--err);}
+.toast.out{animation:tout .3s ease both;}
+@keyframes tin{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+@keyframes tout{from{opacity:1;}to{opacity:0;transform:translateY(6px);}}
+
+@media(max-width:800px){.dgrid{grid-template-columns:1fr;}.stats{grid-template-columns:1fr;}.sgrid{grid-template-columns:1fr;}.sb{width:52px;}.main{left:52px;}}
+@media(max-width:500px){.dbtns,.demo-banner{flex-wrap:wrap;}.locked-banner{flex-direction:column;align-items:flex-start;}.lbtn{width:100%;text-align:center;}}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════
+     SCREEN 1: LANDING — Demo or Sign Up
+═══════════════════════════════════════ -->
+<div class="screen on" id="sc-land">
+  <div class="box" style="text-align:center">
+    <div class="box-logo" style="margin:0 auto 18px">RB</div>
+    <div class="box-title">ReviewBot</div>
+    <div class="box-sub">AI-powered reply tool for Zomato & Swiggy reviews.<br/>Try it free — no account needed.</div>
+
+    <div class="note ok" style="text-align:left">
+      <strong>✅ Demo Mode</strong> — Try all features instantly with sample reviews. No sign up, no payment.
+    </div>
+    <button class="btn green" onclick="startDemo()">Try Demo — No Sign Up Needed</button>
+
+    <div class="divider">or</div>
+
+    <div class="note" style="text-align:left">
+      <strong>🚀 Full Version</strong> — Connect your Gmail, get real Zomato & Swiggy reviews replied automatically.
+    </div>
+    <button class="btn primary" onclick="showScreen('sc-signup')">Create Account & Subscribe →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN 2: SIGN UP
+═══════════════════════════════════════ -->
+<div class="screen" id="sc-signup">
+  <div class="box">
+    <div class="box-logo">RB</div>
+    <div class="box-title">Create Account</div>
+    <div class="box-sub">Enter your details to get started.</div>
+    <label class="fl">Restaurant Name</label>
+    <input class="fi" type="text" id="su-rest" placeholder="Spice Garden"/>
+    <label class="fl">Your Name</label>
+    <input class="fi" type="text" id="su-name" placeholder="Ravi Kumar"/>
+    <label class="fl">Email</label>
+    <input class="fi" type="email" id="su-email" placeholder="ravi@restaurant.com"/>
+    <label class="fl">Phone</label>
+    <input class="fi" type="tel" id="su-phone" placeholder="9876543210"/>
+    <label class="fl">Gmail Address <span style="color:var(--dim)">(for watching reviews)</span></label>
+    <input class="fi" type="email" id="su-gmail" placeholder="you@gmail.com"/>
+    <button class="btn primary" onclick="submitSignup()">Continue to Plans →</button>
+    <button class="btn outline" style="margin-top:8px" onclick="showScreen('sc-land')">← Back</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN 3: CHOOSE PLAN & PAY
+═══════════════════════════════════════ -->
+<div class="screen" id="sc-plans">
+  <div class="box">
+    <div class="box-logo">RB</div>
+    <div class="box-title">Choose a Plan</div>
+    <div class="box-sub">Pick a plan to activate your ReviewBot. Cancel anytime.</div>
+    <div class="plan-sel" id="plan-sel">
+      <div class="plan-row active" onclick="selPlan('pro',this)">
+        <div><div class="prname" style="color:var(--acc)">Pro ⭐ Popular</div><div class="prdesc">111 AI replies/mo · 3 restaurants</div></div>
+        <div class="prprice">₹499<span style="font-size:10px;color:var(--muted)">/mo</span></div>
+      </div>
+      <div class="plan-row" onclick="selPlan('unlimited',this)">
+        <div><div class="prname" style="color:var(--warn)">Unlimited</div><div class="prdesc">Unlimited replies · 5 restaurants</div></div>
+        <div class="prprice">₹699<span style="font-size:10px;color:var(--muted)">/mo</span></div>
+      </div>
+      <div class="plan-row" onclick="selPlan('business',this)">
+        <div><div class="prname">Business</div><div class="prdesc">Unlimited · All restaurants · Priority support</div></div>
+        <div class="prprice">₹1,299<span style="font-size:10px;color:var(--muted)">/mo</span></div>
+      </div>
+    </div>
+    <div class="note warn">⚡ Payment goes through Razorpay — UPI, Cards, NetBanking, Wallets accepted.</div>
+    <button class="btn green" id="pay-btn" onclick="initiatePayment()">Pay & Activate →</button>
+    <button class="btn outline" style="margin-top:8px" onclick="showScreen('sc-signup')">← Back</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN 4: SUCCESS
+═══════════════════════════════════════ -->
+<div class="screen" id="sc-success">
+  <div class="box" style="text-align:center">
+    <div style="font-size:56px;margin-bottom:14px">🎉</div>
+    <div class="box-title" id="succ-title">Pro Plan Activated!</div>
+    <div class="box-sub" id="succ-sub">Your ReviewBot is ready. Reviews will be caught and replied automatically.</div>
+    <div class="note ok" style="text-align:left;margin-bottom:18px">
+      <strong>✅ What happens next:</strong><br/>
+      ReviewBot will watch your Gmail every 60 seconds for new Zomato & Swiggy reviews and generate AI replies automatically.
+    </div>
+    <button class="btn primary" onclick="enterApp()">Go to Dashboard →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     MAIN APP
+═══════════════════════════════════════ -->
+<nav class="sb">
+  <div class="logo">RB</div>
+  <button class="nb on" id="nb-dash" onclick="nav('dash')" title="Dashboard">
+    <span class="bdot" id="notif-bdot"></span>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+  </button>
+  <button class="nb" id="nb-settings" onclick="nav('settings')" title="Settings">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+  </button>
+  <div class="spacer"></div>
+  <div class="sdot" id="gsdot"></div>
+</nav>
+
+<div class="main">
+  <header class="topbar">
+    <span class="tbtitle" id="ptitle">Dashboard</span>
+    <div class="tbpill demo" id="tbpill"><div class="sdot" id="tbsdot"></div><span id="stxt">Demo</span></div>
+    <div class="tbright">
+      <span id="nrl" style="display:none">Next: <b id="nrt">—</b></span>
+      <span class="plan-badge free" id="plan-badge">Free</span>
+      <button class="upgrade-chip" id="upgrade-chip" onclick="showScreen('sc-plans')">Upgrade ↑</button>
+    </div>
+  </header>
+
+  <div class="pages">
+    <!-- DASHBOARD -->
+    <div class="page on" id="page-dash">
+
+      <!-- shown in demo mode -->
+      <div class="demo-banner" id="demo-banner">
+        <div><h3>🧪 Demo Mode — No sign up needed</h3><p>Inject sample reviews and see AI replies generated instantly.</p></div>
+        <div class="dbtns">
+          <button class="dbtn zom" onclick="injectDemo('zomato')">+ Zomato</button>
+          <button class="dbtn swg" onclick="injectDemo('swiggy')">+ Swiggy</button>
+          <button class="dbtn both" onclick="injectDemo('both')">+ Both</button>
+          <button class="dbtn clr" onclick="clearDemo()">Clear</button>
+        </div>
+      </div>
+
+      <!-- shown when subscribed but Gmail not connected -->
+      <div class="locked-banner" id="locked-banner" style="display:none">
+        <div class="lico">📧</div>
+        <div><h3>Connect Gmail to Start Watching</h3><p>Go to Settings and add your Gmail address to start catching real Zomato & Swiggy reviews.</p></div>
+        <button class="lbtn" onclick="nav('settings')">Go to Settings →</button>
+      </div>
+
+      <div class="stats">
+        <div class="sc"><div class="slbl">Total Reviews</div><div class="sval b" id="st-total">0</div></div>
+        <div class="sc"><div class="slbl">Replied</div><div class="sval g" id="st-replied">0</div></div>
+        <div class="sc"><div class="slbl">Pending</div><div class="sval y" id="st-pending">0</div></div>
+      </div>
+
+      <div class="fbar">
+        <button class="fp on" onclick="setFilter('all',this)">All</button>
+        <button class="fp" onclick="setFilter('zomato',this)">Zomato</button>
+        <button class="fp" onclick="setFilter('swiggy',this)">Swiggy</button>
+        <button class="fp" onclick="setFilter('pending',this)">Pending</button>
+        <button class="fp" onclick="setFilter('done',this)">Replied</button>
+        <button class="rbtn" onclick="manualRefresh()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3"/></svg>Refresh
+        </button>
+      </div>
+
+      <div class="dgrid">
+        <div class="lcol">
+          <div class="rg" id="rg"></div>
+          <div class="empty" id="empty" style="display:none">
+            <span>🍽️</span><h3>No reviews yet</h3>
+            <p id="empty-msg">Use demo buttons above to test AI replies.</p>
+          </div>
+        </div>
+        <div class="apanel">
+          <div class="ph"><div class="pt"><div class="dot"></div>Activity</div><span class="pbadge" id="act-count">0 events</span></div>
+          <div class="al" id="act-list"><div class="aempty"><span>📋</span>No activity yet.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="page" id="page-settings">
+      <div style="margin-bottom:18px">
+        <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;margin-bottom:3px">Settings</div>
+        <div style="font-size:12px;color:var(--muted)" id="acct-info">Not signed in</div>
+      </div>
+      <div class="sgrid">
+        <div class="ss">
+          <div class="stit">Restaurant</div>
+          <input class="sfi" type="text" id="s-rest" placeholder="Restaurant Name"/>
+          <input class="sfi" type="email" id="s-gmail" placeholder="Gmail Address"/>
+          <button class="savebtn" onclick="saveSettings()">Save & Apply</button>
+        </div>
+        <div class="ss">
+          <div class="stit">Auto-Refresh</div>
+          <div class="tg" id="sg-int">
+            <button class="tp" data-val="30000" onclick="selTog('sg-int',this)">30s</button>
+            <button class="tp sel" data-val="60000" onclick="selTog('sg-int',this)">60s</button>
+            <button class="tp" data-val="120000" onclick="selTog('sg-int',this)">2 min</button>
+            <button class="tp" data-val="300000" onclick="selTog('sg-int',this)">5 min</button>
+          </div>
+        </div>
+        <div class="ss fw">
+          <div class="stit">Subscription</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+            <span id="s-plan-badge" class="plan-badge free">Free</span>
+            <span style="font-size:12px;color:var(--muted)" id="s-plan-exp"></span>
+            <button class="upgrade-chip" onclick="showScreen('sc-plans')" style="margin-left:auto">Upgrade Plan</button>
+          </div>
+          <button style="width:100%;padding:10px;border-radius:9px;border:1px solid rgba(252,129,129,.2);background:transparent;color:var(--err);font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;" onclick="resetApp()">Reset & Sign Out</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="tc" id="toast-cont"></div>
+
+<script>
+// ══ CONFIG — replace with your actual values when deploying ══
+const GEMINI_KEY = ''; // leave empty — handled by /api/generate-reply on Vercel
+const RZP_KEY    = ''; // leave empty — handled by /api/create-order on Vercel
+const BIZ_NAME   = 'ReviewBot';
+// ════════════════════════════════════════════════════════════
+
+const PLANS_INFO = {
+  pro:       { name:'Pro',       price:499,  paise:49900  },
+  unlimited: { name:'Unlimited', price:699,  paise:69900  },
+  business:  { name:'Business',  price:1299, paise:129900 }
+};
+
+const DEMO_REVIEWS = {
+  zomato:[
+    {text:"Biryani was absolutely amazing! Generous portions, arrived hot and fresh. Saffron flavour was on point. Will definitely order again!",rating:5},
+    {text:"Butter chicken was creamy and rich. Naan perfectly soft. Delivery was quick. Loved it!",rating:4},
+    {text:"Order was 45 minutes late and food arrived cold. The dal was too watery. Expected better for this price.",rating:2},
+    {text:"Paneer tikka was dry and overcooked. Very disappointed. Packaging was also damaged when it arrived.",rating:1},
+    {text:"Good taste but portion was small for the price. Delivery guy was polite though.",rating:3},
+    {text:"Best biryani from a delivery app! Meat tender and spices perfectly balanced. 10/10.",rating:5},
+  ],
+  swiggy:[
+    {text:"Fantastic pasta! Delivered in 20 minutes, still piping hot. White sauce was absolutely delicious 🔥",rating:5},
+    {text:"Burger juicy and fries still crispy when delivered. Packaging excellent. Highly recommend!",rating:5},
+    {text:"Sandwich arrived completely soggy. Chicken seemed undercooked. Won't order again.",rating:1},
+    {text:"Pizza decent but crust too thick. Toppings were fresh though. Average experience.",rating:3},
+    {text:"Loved the manchurian! Gravy thick and flavourful. Huge rice portion. Great value.",rating:4},
+    {text:"Wrong item delivered. Support not responding for 30 minutes. Very frustrating.",rating:2},
+  ]
+};
+
+// ══ STATE ══
+let S = { rest:'', name:'', email:'', phone:'', gmail:'', interval:60000, plan:'free', planExp:null, isDemo:true };
+let reviews=[], actLog=[], seenIds=new Set(), filterMode='all';
+let pollTimer=null, cdTimer=null, nextRefAt=0, watching=false;
+let selectedPlan='pro';
+const demoIdx={zomato:0,swiggy:0};
+
+// ══ INIT ══
+window.addEventListener('DOMContentLoaded',()=>{
+  loadState();
+  if(S.email && S.plan !== 'free'){
+    // returning subscribed user
+    S.isDemo = false;
+    enterApp();
+  } else if(S.email && S.plan === 'free'){
+    // signed up but didn't pay — send back to plans
+    showScreen('sc-plans');
+  }
+  // else: show landing (default)
+});
+
+function loadState(){
+  try{
+    const s=localStorage.getItem('rb_main');if(s)S={...S,...JSON.parse(s)};
+    const r=localStorage.getItem('rb_r');if(r)reviews=JSON.parse(r);
+    const se=localStorage.getItem('rb_se');if(se)seenIds=new Set(JSON.parse(se));
+    const a=localStorage.getItem('rb_a');if(a)actLog=JSON.parse(a);
+  }catch(e){}
+}
+function saveState(){
+  localStorage.setItem('rb_main',JSON.stringify(S));
+  localStorage.setItem('rb_r',JSON.stringify(reviews));
+  localStorage.setItem('rb_se',JSON.stringify([...seenIds]));
+  localStorage.setItem('rb_a',JSON.stringify(actLog.slice(0,60)));
+}
+
+// ══ SCREENS ══
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+}
+
+// ══ DEMO MODE (no sign up) ══
+function startDemo(){
+  S.isDemo=true;
+  hideAllScreens();
+  updateUI();
+  renderDash();
+  toast('Demo mode — inject reviews using the buttons above!','ok');
+}
+function hideAllScreens(){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));
+}
+
+// ══ SIGN UP ══
+function submitSignup(){
+  const rest=document.getElementById('su-rest').value.trim();
+  const name=document.getElementById('su-name').value.trim();
+  const email=document.getElementById('su-email').value.trim();
+  const phone=document.getElementById('su-phone').value.trim();
+  const gmail=document.getElementById('su-gmail').value.trim();
+  if(!rest||!name||!email||!phone){toast('Please fill all required fields','warn');return;}
+  S.rest=rest; S.name=name; S.email=email; S.phone=phone; S.gmail=gmail;
+  saveState();
+  showScreen('sc-plans');
+}
+
+// ══ PLAN SELECTION ══
+function selPlan(key,el){
+  selectedPlan=key;
+  document.querySelectorAll('.plan-row').forEach(r=>r.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('pay-btn').textContent=`Pay ₹${PLANS_INFO[key].price.toLocaleString()} & Activate →`;
+}
+
+// ══ PAYMENT ══
+async function initiatePayment(){
+  const plan=PLANS_INFO[selectedPlan];
+  const btn=document.getElementById('pay-btn');
+  btn.disabled=true; btn.textContent='Opening Razorpay...';
+
+  try{
+    // In production: call /api/create-order to get orderId from server
+    // For now: open Razorpay directly with Key ID
+    const options={
+      key: RZP_KEY,
+      amount: plan.paise,
+      currency:'INR',
+      name: BIZ_NAME,
+      description:`${plan.name} Plan — Monthly`,
+      prefill:{name:S.name, email:S.email, contact:S.phone},
+      theme:{color:'#4299E1'},
+      modal:{ondismiss:()=>{btn.disabled=false;btn.textContent=`Pay ₹${plan.price.toLocaleString()} & Activate →`;}},
+      handler:(resp)=>activatePlan(resp,selectedPlan)
+    };
+    const rzp=new Razorpay(options);
+    rzp.on('payment.failed',(r)=>{toast(`Payment failed: ${r.error.description}`,'err');btn.disabled=false;btn.textContent=`Pay ₹${plan.price.toLocaleString()} & Activate →`;});
+    rzp.open();
+  }catch(e){
+    toast('Could not open Razorpay. Check your Key ID in code.','err');
+    btn.disabled=false; btn.textContent=`Pay ₹${plan.price.toLocaleString()} & Activate →`;
+  }
+}
+
+function activatePlan(resp, planKey){
+  const exp=new Date(); exp.setMonth(exp.getMonth()+1);
+  S.plan=planKey;
+  S.planExp=exp.toISOString();
+  S.isDemo=false;
+  saveState();
+  const plan=PLANS_INFO[planKey];
+  document.getElementById('succ-title').textContent=`${plan.name} Plan Activated! 🎉`;
+  document.getElementById('succ-sub').textContent=`Welcome, ${S.name}! Payment ID: ${resp.razorpay_payment_id}`;
+  showScreen('sc-success');
+  toast(`${plan.name} plan activated!`,'ok');
+}
+
+// ══ ENTER APP ══
+function enterApp(){
+  hideAllScreens();
+  S.isDemo=false;
+  updateUI();
+  renderSettingsPage();
+  renderDash();
+  if(S.gmail) startWatcher();
+}
+
+function updateUI(){
+  // top bar pill
+  const pill=document.getElementById('tbpill');
+  const stxt=document.getElementById('stxt');
+  if(S.isDemo){
+    pill.className='tbpill demo';
+    stxt.textContent='Demo';
+  } else {
+    pill.className='tbpill';
+    stxt.textContent='Idle';
+  }
+  // plan badge
+  const planName=S.plan==='free'?'Free':PLANS_INFO[S.plan]?.name||'Free';
+  ['plan-badge','s-plan-badge'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){el.textContent=planName;el.className='plan-badge '+(S.plan||'free');}
+  });
+  // upgrade chip
+  const chip=document.getElementById('upgrade-chip');
+  if(chip) chip.style.display=S.plan==='free'||S.isDemo?'':'none';
+  // expiry
+  const expEl=document.getElementById('s-plan-exp');
+  if(expEl&&S.planExp) expEl.textContent=`Expires ${new Date(S.planExp).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}`;
+  // account info
+  const ai=document.getElementById('acct-info');
+  if(ai) ai.textContent=S.isDemo?'Demo mode — sign up to use full version':`${S.name} · ${S.email}`;
+  // banners
+  document.getElementById('demo-banner').style.display=S.isDemo?'flex':'none';
+  document.getElementById('locked-banner').style.display=(!S.isDemo&&!S.gmail)?'flex':'none';
+  // empty msg
+  const em=document.getElementById('empty-msg');
+  if(em) em.textContent=S.isDemo?'Use demo buttons above to test AI replies.':'ReviewBot is watching your Gmail for new reviews.';
+}
+
+// ══ NAV ══
+function nav(pg){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));
+  document.getElementById('page-'+pg).classList.add('on');
+  document.getElementById('nb-'+pg).classList.add('on');
+  document.getElementById('ptitle').textContent=pg==='dash'?'Dashboard':'Settings';
+  if(pg==='dash') renderDash();
+}
+
+// ══ SETTINGS PAGE ══
+function renderSettingsPage(){
+  document.getElementById('s-rest').value=S.rest||'';
+  document.getElementById('s-gmail').value=S.gmail||'';
+  setTog('sg-int',String(S.interval||60000));
+}
+function setTog(id,val){const g=document.getElementById(id);if(!g)return;g.querySelectorAll('.tp').forEach(p=>p.classList.toggle('sel',p.dataset.val===val));}
+function selTog(id,el){document.getElementById(id).querySelectorAll('.tp').forEach(p=>p.classList.remove('sel'));el.classList.add('sel');}
+function getTog(id){const g=document.getElementById(id),s=g&&g.querySelector('.tp.sel');return s?s.dataset.val:null;}
+function saveSettings(){
+  S.rest=document.getElementById('s-rest').value.trim()||S.rest;
+  S.gmail=document.getElementById('s-gmail').value.trim();
+  S.interval=parseInt(getTog('sg-int')||'60000');
+  saveState(); updateUI(); toast('Settings saved!','ok');
+  stopWatcher();
+  if(S.gmail&&!S.isDemo) startWatcher();
+  nav('dash');
+}
+function resetApp(){if(!confirm('Sign out and reset?'))return;localStorage.clear();location.reload();}
+
+// ══ DEMO INJECT ══
+function injectDemo(which){
+  const platforms=which==='both'?['zomato','swiggy']:[which];
+  platforms.forEach(plat=>{
+    const item=DEMO_REVIEWS[plat][demoIdx[plat]%DEMO_REVIEWS[plat].length];
+    demoIdx[plat]++;
+    const rv={id:'demo-'+Date.now()+'-'+Math.random().toString(36).slice(2),platform:plat,reviewText:item.text,rating:item.rating,aiReply:null,done:false,isDemo:true,time:new Date().toLocaleString()};
+    reviews.unshift(rv);
+    addAct('review',plat,'[Demo] Review injected');
+    genReply(rv.id); playSound(); updateBadge();
+  });
+  saveState(); renderDash();
+  toast('Demo review added — generating AI reply...','ok');
+}
+function clearDemo(){reviews=reviews.filter(r=>!r.isDemo);saveState();renderDash();toast('Demo reviews cleared','ok');}
+
+// ══ WATCHER ══
+function startWatcher(){
+  if(pollTimer) clearInterval(pollTimer);
+  watching=true; updateWatchUI(true);
+  fetchReviews();
+  pollTimer=setInterval(fetchReviews,S.interval);
+  startCD();
+}
+function stopWatcher(){
+  if(pollTimer){clearInterval(pollTimer);pollTimer=null;}
+  if(cdTimer){clearInterval(cdTimer);cdTimer=null;}
+  watching=false; updateWatchUI(false);
+}
+function startCD(){
+  nextRefAt=Date.now()+S.interval;
+  document.getElementById('nrl').style.display='';
+  if(cdTimer) clearInterval(cdTimer);
+  cdTimer=setInterval(()=>{
+    const l=Math.max(0,Math.ceil((nextRefAt-Date.now())/1000));
+    document.getElementById('nrt').textContent=l+'s';
+    if(l===0) nextRefAt=Date.now()+S.interval;
+  },1000);
+}
+function updateWatchUI(active){
+  ['tbsdot','gsdot'].forEach(id=>document.getElementById(id).classList.toggle('on',active));
+  if(!S.isDemo){
+    const pill=document.getElementById('tbpill');
+    pill.className='tbpill'+(active?' on':'');
+    document.getElementById('stxt').textContent=active?'Watching...':'Idle';
+  }
+  if(!active) document.getElementById('nrl').style.display='none';
+}
+function manualRefresh(){
+  if(S.isDemo){toast('Demo mode — use inject buttons instead','warn');return;}
+  if(!S.gmail){toast('Add Gmail in Settings','warn');nav('settings');return;}
+  fetchReviews(); if(watching) nextRefAt=Date.now()+S.interval;
+  toast('Checking inbox...','ok');
+}
+
+// ══ GMAIL RSS ══
+async function fetchReviews(){
+  if(!S.gmail||S.isDemo) return;
+  try{
+    const res=await fetch('https://api.allorigins.win/raw?url='+encodeURIComponent('https://mail.google.com/mail/feed/atom'),{credentials:'omit'});
+    if(!res.ok) throw new Error('feed');
+    parseFeed(await res.text());
+  }catch(e){console.warn('RSS:',e.message);}
+}
+function parseFeed(xml){
+  const doc=new DOMParser().parseFromString(xml,'text/xml');
+  let n=0;
+  doc.querySelectorAll('entry').forEach(e=>{
+    const id=e.querySelector('id')?.textContent||'';
+    const title=e.querySelector('title')?.textContent||'';
+    const sum=e.querySelector('summary')?.textContent||'';
+    const email=e.querySelector('author email')?.textContent?.toLowerCase()||'';
+    const issued=e.querySelector('issued')?.textContent||new Date().toISOString();
+    if(seenIds.has(id)) return;
+    const plat=detectPlat(title,sum,email);
+    if(!plat) return;
+    seenIds.add(id);
+    const rv={id:'em-'+Date.now()+'-'+Math.random().toString(36).slice(2),platform:plat,reviewText:extractText(title,sum),rating:extractRating(sum+title),aiReply:null,done:false,time:new Date(issued).toLocaleString()};
+    reviews.unshift(rv); n++;
+    addAct('review',plat,'New review detected');
+    genReply(rv.id); sendNotif(plat); playSound(); updateBadge();
+  });
+  if(n>0){saveState();renderDash();}
+}
+function detectPlat(t,b,e){const c=(t+b+e).toLowerCase();if(c.includes('zomato'))return'zomato';if(c.includes('swiggy'))return'swiggy';return null;}
+function extractText(t,b){const c=(b||t).replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();const m=c.match(/review[:\s]+[""]?(.{20,300})/i)||c.match(/wrote[:\s]+[""]?(.{20,300})/i);if(m)return m[1].replace(/["'"]/g,'').trim();return c.slice(0,280)+(c.length>280?'...':'');}
+function extractRating(t){const m=t.match(/(\d)[\/\s]*(?:out of\s*)?5\s*stars?/i)||t.match(/rated?\s*(\d)/i);return m?parseInt(m[1]):null;}
+
+// ══ AI REPLY ══
+async function genReply(id){
+  const r=reviews.find(x=>x.id===id);if(!r)return;
+  r.aiReply='__gen__'; renderDash();
+  const rest=S.rest||'our restaurant';
+  const prompt=`You are a polite restaurant manager responding to a customer review for "${rest}" on ${r.platform}.\nCustomer review: "${r.reviewText}"${r.rating?'\nRating: '+r.rating+'/5':''}\n\nWrite a warm, professional reply in 2-3 sentences. Be specific to their feedback. If negative, apologize genuinely. If positive, express gratitude and invite them back. Max 1 emoji. No quotes. Just the reply.`;
+  try{
+    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:.8,maxOutputTokens:200}})
+    });
+    const data=await res.json();
+    if(data.error) throw new Error(data.error.message);
+    r.aiReply=data.candidates?.[0]?.content?.parts?.[0]?.text?.trim()||'❌ No reply generated.';
+    if(!r.aiReply.startsWith('❌')) addAct('reply',r.platform,'AI reply generated');
+  }catch(e){
+    r.aiReply=e.message?.includes('API_KEY')?'❌ Gemini key invalid.':'❌ '+e.message;
+  }
+  saveState(); renderDash();
+}
+
+// ══ RENDER ══
+function renderDash(){
+  const total=reviews.length,replied=reviews.filter(r=>r.done).length;
+  document.getElementById('st-total').textContent=total;
+  document.getElementById('st-replied').textContent=replied;
+  document.getElementById('st-pending').textContent=total-replied;
+  let f=reviews;
+  if(filterMode==='zomato') f=reviews.filter(r=>r.platform==='zomato');
+  else if(filterMode==='swiggy') f=reviews.filter(r=>r.platform==='swiggy');
+  else if(filterMode==='pending') f=reviews.filter(r=>!r.done);
+  else if(filterMode==='done') f=reviews.filter(r=>r.done);
+  const rg=document.getElementById('rg'),em=document.getElementById('empty');
+  if(f.length===0){rg.innerHTML='';em.style.display='block';}
+  else{em.style.display='none';rg.innerHTML=f.map(renderCard).join('');}
+  renderActFeed(); updateBadge();
+}
+function renderCard(r){
+  const stars=r.rating?'★'.repeat(r.rating)+'☆'.repeat(5-r.rating):'';
+  const sc=r.rating>=4?'#ECC94B':r.rating>=3?'#FC8019':'#FC8181';
+  let replyHtml='';
+  if(r.aiReply==='__gen__') replyHtml=`<div class="ars"><div class="albl">✦ AI Reply</div><div class="agen"><div class="spin"></div>Gemini is writing...</div></div>`;
+  else if(r.aiReply) replyHtml=`<div class="ars"><div class="albl">✦ AI Reply</div><div class="art">${esc(r.aiReply)}</div></div>`;
+  const ok=r.aiReply&&r.aiReply!=='__gen__'&&!r.aiReply.startsWith('❌');
+  return `<div class="rc ${r.done?'done':''} ${r.isDemo?'is-demo':''}" id="c-${r.id}">
+    <div class="ch">
+      <span class="pb ${r.platform}">${r.platform.toUpperCase()}</span>
+      ${r.isDemo?'<span class="demo-tag">🧪 Demo</span>':''}
+      ${stars?`<span style="font-size:12px;color:${sc}">${stars}</span>`:''}
+      <span class="ctime">${r.time}</span>
+    </div>
+    <div class="rt">${esc(r.reviewText)}</div>
+    ${replyHtml}
+    <div class="ca">
+      <button class="bl" onclick="launch('${r.id}')" ${!ok||r.done?'disabled':''}>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        ${r.done?'Replied':'Copy & Done'}
+      </button>
+      <button class="br" onclick="regen('${r.id}')" ${r.aiReply==='__gen__'?'disabled':''}>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3"/></svg>Regen
+      </button>
+      <button class="bd" onclick="delRv('${r.id}')">🗑</button>
+    </div>
+  </div>`;
+}
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function launch(id){const r=reviews.find(x=>x.id===id);if(!r||!r.aiReply)return;navigator.clipboard.writeText(r.aiReply).catch(()=>{const t=document.createElement('textarea');t.value=r.aiReply;document.body.appendChild(t);t.select();document.execCommand('copy');document.body.removeChild(t);});r.done=true;addAct('reply',r.platform,'Reply copied & marked done');saveState();renderDash();toast('Reply copied! 🎉','ok');}
+function regen(id){const r=reviews.find(x=>x.id===id);if(!r)return;r.aiReply=null;r.done=false;addAct('regen',r.platform,'Regenerating reply');saveState();genReply(id);}
+function delRv(id){const r=reviews.find(x=>x.id===id);if(r)addAct('delete',r.platform,'Review deleted');reviews=reviews.filter(x=>x.id!==id);saveState();renderDash();}
+function setFilter(m,el){filterMode=m;document.querySelectorAll('.fp').forEach(p=>p.classList.remove('on'));el.classList.add('on');renderDash();}
+function addAct(type,platform,message){actLog.unshift({type,platform,message,time:new Date().toLocaleTimeString()});if(actLog.length>60)actLog.pop();renderActFeed();}
+function renderActFeed(){
+  const l=document.getElementById('act-list'),c=document.getElementById('act-count');
+  c.textContent=actLog.length+' event'+(actLog.length!==1?'s':'');
+  if(actLog.length===0){l.innerHTML=`<div class="aempty"><span>📋</span>No activity yet.</div>`;return;}
+  const icons={review:'📨',reply:'✅',regen:'🔄',delete:'🗑️'};
+  l.innerHTML=actLog.slice(0,30).map((a,i)=>`<div class="ai"><div class="aico ${a.type}">${icons[a.type]||'•'}</div><div class="ab"><div class="atitle">${esc(a.message)}</div><div class="amet">${a.platform?`<span class="aplat ${a.platform}">${a.platform.toUpperCase()}</span>`:''} ${a.time}</div></div></div>`).join('');
+}
+function sendNotif(plat){if('Notification' in window&&Notification.permission==='granted'){new Notification('New '+plat+' Review!',{body:'Open ReviewBot to reply.'});}toast(`New ${plat} review!`,'ok');}
+function updateBadge(){const p=reviews.filter(r=>!r.done).length;document.getElementById('notif-bdot').classList.toggle('show',p>0);document.title=p>0?`(${p}) ReviewBot`:'ReviewBot';}
+function playSound(){try{const ctx=new(window.AudioContext||window.webkitAudioContext)();[[880,0,.1],[1100,.1,.1],[1320,.2,.18]].forEach(([f,s,d])=>{const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.frequency.value=f;g.gain.setValueAtTime(.1,ctx.currentTime+s);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+s+d);o.start(ctx.currentTime+s);o.stop(ctx.currentTime+s+d);});}catch(e){}}
+function toast(msg,type='ok'){const c=document.getElementById('toast-cont');const t=document.createElement('div');t.className=`toast ${type}`;t.innerHTML=`<span>${{ok:'✓',warn:'⚡',err:'✕'}[type]}</span><span>${msg}</span>`;c.appendChild(t);setTimeout(()=>{t.classList.add('out');setTimeout(()=>t.remove(),300);},3200);}
+</script>
+</body>
+</html>
